@@ -9,6 +9,7 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -22,20 +23,31 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and push Docker image
+      - name: Build and push multi-arch Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/node-api:latest
+          platforms: linux/amd64,linux/arm64
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/node-api:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/node-api:${{ github.sha }}
 
-      - name: Set up Kubernetes tools
+      - name: Set up kubectl
         uses: azure/setup-kubectl@v3
-        
+        with:
+          version: 'latest'
+
       - name: Deploy to Kubernetes
+        env:
+          KUBECONFIG_CONTENT: ${{ secrets.KUBE_CONFIG }}
         run: |
-          echo "${{ secrets.KUBE_CONFIG }}" > kubeconfig.yaml
-          export KUBECONFIG=kubeconfig.yaml
+          echo "$KUBECONFIG_CONTENT" > kubeconfig.yaml
+          export KUBECONFIG=$(pwd)/kubeconfig.yaml
+
+          echo "📦 Deploying to Kubernetes..."
           kubectl apply -f k8s/deployment.yaml --validate=false
           kubectl apply -f k8s/service.yaml --validate=false
+
+          echo "♻️ Restarting Deployment..."
           kubectl rollout restart deployment node-api
