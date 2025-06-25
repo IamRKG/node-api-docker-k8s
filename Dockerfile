@@ -34,7 +34,7 @@
     # Only copy the output of `next build` + static assets
     COPY --from=builder /app/.next/standalone ./
     COPY --from=builder /app/.next/static ./.next/static
-    COPY --from=builder /app/public ./public
+
     
     # Environment variables
     ENV NODE_ENV=production
